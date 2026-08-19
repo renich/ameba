@@ -21,6 +21,7 @@ module Ameba::Rule::Style
   # Style/VerboseNilType:
   #   Enabled: true
   #   ExplicitNil: false
+  #   OnlyTwoElementUnions: false
   # ```
   class VerboseNilType < Base
     include AST::Util
@@ -29,6 +30,7 @@ module Ameba::Rule::Style
       since_version "1.7.0"
       description "Enforces consistent naming of `Nil` in type unions"
       explicit_nil false
+      only_two_element_unions false
     end
 
     MSG_VERBOSE = "Prefer `?` instead of `| Nil` in unions"
@@ -45,7 +47,7 @@ module Ameba::Rule::Style
       return if node_source.includes?(".class")
 
       # `String?` -> `String | Nil`
-      if explicit_nil?
+      if explicit_nil? || (only_two_element_unions? && type_count(node) > 2)
         return unless node_source.ends_with?('?')
 
         issue_for(node, MSG_SHORT) do |corrector|
@@ -82,6 +84,12 @@ module Ameba::Rule::Style
             .gsub(SINGLE_TYPE_PATTERN, "\\1")
         end
         corrector.replace(node, corrected_code)
+      end
+    end
+
+    private def type_count(node : Crystal::Union)
+      node.types.sum do |type|
+        type.is_a?(Crystal::Union) ? type.types.size : 1
       end
     end
 
